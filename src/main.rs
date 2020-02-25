@@ -35,10 +35,10 @@ fn main() {
 
   unsafe {
     let vs_src = b"
-    #version 100
+    #version 460
     precision mediump float;
 
-    attribute vec2 a_position;
+    in vec2 a_position;
 
     void main() {
       gl_Position = vec4(a_position, 1.0, 1.0);
@@ -68,7 +68,7 @@ fn main() {
     }
 
     let fs_src = b"
-    #version 100
+    #version 460
     
     precision mediump float;
 
@@ -162,7 +162,7 @@ fn main() {
       2 * std::mem::size_of::<GLfloat>() as GLsizei,
       std::ptr::null()
     );
-    
+
     gl.ClearColor(0.0,0.0,0.0,1.0);
     gl.UseProgram(program);
     
