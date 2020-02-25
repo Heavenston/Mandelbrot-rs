@@ -131,7 +131,7 @@ fn main() {
        1f32, 1f32, // 1
       -1f32,-1f32, // 3
        1f32, 1f32, // 1
-       1f32, 1f32, // 2
+       1f32,-1f32, // 2
       -1f32,-1f32, // 3
     ];
     let mut vertex_buffer = 0;
@@ -162,7 +162,8 @@ fn main() {
       2 * std::mem::size_of::<GLfloat>() as GLsizei,
       std::ptr::null()
     );
-
+    
+    gl.ClearColor(0.0,0.0,0.0,1.0);
     gl.UseProgram(program);
     
     let mut err: GLenum = gl.GetError();
@@ -188,9 +189,8 @@ fn main() {
       }
       glfw.poll_events();
 
-      gl.ClearColor(0.0,1.0,0.0,1.0);
       gl.Clear(gl::COLOR_BUFFER_BIT);
-      gl.DrawArrays(gl::TRIANGLES, 0 as GLint, vertices.len() as GLsizei);
+      gl.DrawArrays(gl::TRIANGLES, 0 as GLint, (vertices.len() as GLsizei)*(2 as GLsizei));
       window.swap_buffers();
     }
   }
