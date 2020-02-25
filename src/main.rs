@@ -39,9 +39,21 @@ fn main() {
     precision mediump float;
 
     in vec2 a_position;
+    out vec2 v_position;
+
+    uniform float u_ratio;
+    uniform float u_zoom;
+    uniform vec2 u_position;
 
     void main() {
       gl_Position = vec4(a_position, 1.0, 1.0);
+      v_position = a_position;
+      v_position.x *= u_ratio;
+
+      float zoom_factor = pow(0.75, u_zoom);
+
+      v_position *= zoom_factor;
+      v_position += u_position;
     }
     \0";
     let vs = gl.CreateShader(gl::VERTEX_SHADER);
@@ -69,11 +81,39 @@ fn main() {
 
     let fs_src = b"
     #version 460
-    
     precision mediump float;
 
+    in vec2 v_position;
+
+    uniform float u_iterations;
+    uniform float u_threshold;
+    uniform float u_ramp;
+
+    vec3 hsl2rgb( in vec3 c ){
+      vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
+      return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
+    }
+
+    vec3 color(float its) {
+      float t = its/u_ramp;
+      return hsl2rgb(vec3(t, 1., 0.5));
+    }
+
     void main() {
-      gl_FragColor = vec4(1.,0.,0.,1.);
+      vec2 c = v_position.xy;
+      vec2 z = vec2(0.);
+
+      float iterations = 0.;
+      for (float i = 0.; i < u_iterations; i++) {
+        iterations = i;
+        float zr2 = z.x * z.x;
+        float zi2 = z.y * z.y;
+    
+        if(zr2 + zi2 > u_threshold) break;
+        z = vec2(zr2 - zi2, 2.0 * z.x * z.y) + c;
+      }
+
+      gl_FragColor = vec4(color(iterations), 1.);
     }
     \0";
     let fs = gl.CreateShader(gl::FRAGMENT_SHADER);
@@ -165,12 +205,38 @@ fn main() {
 
     gl.ClearColor(0.0,0.0,0.0,1.0);
     gl.UseProgram(program);
+
+    /*
+    VERTEX UNIFORMS
+    */
+
+    let ratio_loc = gl.GetUniformLocation(program, b"u_ratio\0".as_ptr() as *const GLchar);
+    let zoom_loc = gl.GetUniformLocation(program, b"u_zoom\0".as_ptr() as *const GLchar);
+    let position_loc = gl.GetUniformLocation(program, b"u_position\0".as_ptr() as *const GLchar);
+
+    gl.Uniform1f(ratio_loc, 1f32);
+    gl.Uniform1f(zoom_loc, 0f32);
+    gl.Uniform2fv(position_loc, 2, [0.75, 0.0].as_ptr());
     
+    /*
+    FRAGMENT UNIFORMS
+    */
+
+    let iterations_loc = gl.GetUniformLocation(program, b"u_iterations\0".as_ptr() as *const GLchar);
+    let threshold_loc = gl.GetUniformLocation(program, b"u_threshold\0".as_ptr() as *const GLchar);
+    let ramp_loc = gl.GetUniformLocation(program, b"u_ramp\0".as_ptr() as *const GLchar);
+
+    gl.Uniform1f(iterations_loc, 100f32);
+    gl.Uniform1f(threshold_loc, 32f32);
+    gl.Uniform1f(ramp_loc, 100f32);
+
     let mut err: GLenum = gl.GetError();
     while err != gl::NO_ERROR {
       println!("OpenGL Error {}", err);
       err = gl.GetError();
     }
+
+    let mut zoom = 0f32;
 
     let delay = std::time::Duration::from_millis(100);
     while !window.should_close() {
@@ -182,12 +248,16 @@ fn main() {
             window.set_should_close(true)
           },
           glfw::WindowEvent::FramebufferSize(width, height) => {
+            gl.Uniform1f(ratio_loc, (width as f32)/(height as f32));
             gl.Viewport(0, 0, width, height);
           },
           _ => {},
         }
       }
       glfw.poll_events();
+
+      zoom += 0.25;
+      gl.Uniform1f(zoom_loc, zoom);
 
       gl.Clear(gl::COLOR_BUFFER_BIT);
       gl.DrawArrays(gl::TRIANGLES, 0 as GLint, (vertices.len() as GLsizei)*(2 as GLsizei));
