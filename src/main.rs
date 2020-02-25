@@ -1,33 +1,37 @@
-extern crate glutin;
-
-use glutin::{
-  event::{Event, WindowEvent},
-  event_loop::{ControlFlow, EventLoop},
-  window::WindowBuilder,
-  ContextBuilder
-};
-#[allow(unused_imports)]
-use std::vec::Vec;
-#[allow(unused_imports)]
-use std::str;
+extern crate glfw;
 
 mod gl {
   include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
+
+use glfw::{Action, Context, Key};
+#[allow(unused_imports)]
+use std::vec::Vec;
+#[allow(unused_imports)]
+use std::str;
 #[allow(unused_imports)]
 use gl::types::*;
 
 fn main() {
-  let event_loop = EventLoop::new();
-  let window_builder = WindowBuilder::new()
-    .with_title("Heav's Mandelbrot");
-  
-  let windowed_context = ContextBuilder::new()
-    .build_windowed(window_builder, &event_loop)
-    .unwrap();
-  let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+  let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
-  let gl = gl::Gl::load_with(|ptr| windowed_context.context().get_proc_address(ptr) as *const _);
+  let (mut window, events) = glfw.create_window(
+    500, 450,
+    "Heav's Mandelbrot",
+    glfw::WindowMode::Windowed
+  ).unwrap();
+
+  window.make_current();
+  
+  glfw.window_hint(glfw::WindowHint::ContextVersion(4, 6));
+  glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
+  #[cfg(target_os = "macos")]
+  glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
+  
+  window.set_key_polling(true);
+  window.set_framebuffer_size_polling(true);
+
+  let gl = gl::Gl::load_with(|ptr| window.get_proc_address(ptr));
 
   unsafe {
     let vs_src = b"
@@ -127,8 +131,8 @@ fn main() {
        1f32, 1f32, // 1
       -1f32,-1f32, // 3
        1f32, 1f32, // 1
-      -1f32,-1f32, // 3
        1f32, 1f32, // 2
+      -1f32,-1f32, // 3
     ];
     let mut vertex_buffer = 0;
     gl.GenBuffers(1, &mut vertex_buffer);
@@ -152,51 +156,42 @@ fn main() {
 
     gl.VertexAttribPointer(
       position_loc as GLuint,
-      3,
+      2,
       gl::FLOAT,
       0, // False
-      0,
-      0 as *const _
+      2 * std::mem::size_of::<GLfloat>() as GLsizei,
+      std::ptr::null()
     );
 
     gl.UseProgram(program);
     
-    gl.ClearColor(0.0,1.0,0.0,1.0);
-    gl.Clear(gl::COLOR_BUFFER_BIT);
-    gl.DrawArrays(gl::TRIANGLES, 0 as GLint, vertices.len() as GLsizei);
-
     let mut err: GLenum = gl.GetError();
     while err != gl::NO_ERROR {
       println!("OpenGL Error {}", err);
       err = gl.GetError();
     }
 
-    event_loop.run(move |event, _, control_flow| {
-      *control_flow = ControlFlow::Poll;
+    let delay = std::time::Duration::from_millis(100);
+    while !window.should_close() {
+      std::thread::sleep(delay);
 
-      match event {
-        Event::WindowEvent {
-          event,
-          window_id: _,
-        } => match event {
-          WindowEvent::Resized(physical_size) => {
-            windowed_context.resize(physical_size);
-            gl.Viewport(0,0,500,500);
-          }
-          WindowEvent::CloseRequested => {
-            *control_flow = ControlFlow::Exit
-          }
-          _ => (),
-        },
-        Event::MainEventsCleared => {
-          windowed_context.window().request_redraw();
+      for (_, event) in glfw::flush_messages(&events) {
+        match event {
+          glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
+            window.set_should_close(true)
+          },
+          glfw::WindowEvent::FramebufferSize(width, height) => {
+            gl.Viewport(0, 0, width, height);
+          },
+          _ => {},
         }
-        Event::RedrawRequested(_) => {
-          gl.ClearColor(0.0,1.0,0.0,1.0);
-          gl.Clear(gl::COLOR_BUFFER_BIT);
-        }
-        _ => (),
       }
-    });
+      glfw.poll_events();
+
+      gl.ClearColor(0.0,1.0,0.0,1.0);
+      gl.Clear(gl::COLOR_BUFFER_BIT);
+      gl.DrawArrays(gl::TRIANGLES, 0 as GLint, vertices.len() as GLsizei);
+      window.swap_buffers();
+    }
   }
 }

@@ -6,7 +6,7 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-glutin = "0.23.0"
+glfw = "0.36.0"
 
 [build-dependencies]
 gl_generator = "0.14.0"
