@@ -57,6 +57,25 @@ fn main() {
 
     gl::LinkProgram(program);
 
+    let mut is_linked = 0;
+    gl::GetProgramiv(program, gl::LINK_STATUS, &mut is_linked);
+    if is_linked == 0 {
+      let mut max_length = 0;
+      gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut max_length);
+
+      // The maxLength includes the NULL character
+      let mut info_log: Vec<u8> = Vec::with_capacity(max_length as usize);
+      gl::GetProgramInfoLog(program, max_length, &mut max_length, info_log.as_mut_ptr() as *mut i8);
+      info_log.set_len(max_length as usize);
+      println!("Info log : {:?}", str::from_utf8(&info_log).unwrap());
+
+      // We don't need the program anymore.
+      gl::DeleteProgram(program);
+      // Don't leak shaders either.
+      gl::DeleteShader(vs);
+      gl::DeleteShader(fs);
+    }
+
     gl::DetachShader(program, vs);
     gl::DetachShader(program, fs);
 
