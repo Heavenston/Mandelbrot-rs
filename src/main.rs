@@ -163,7 +163,13 @@ fn main() {
     
     gl.ClearColor(0.0,1.0,0.0,1.0);
     gl.Clear(gl::COLOR_BUFFER_BIT);
-    //gl.DrawArrays(gl::TRIANGLES, 0 as GLint, vertices.len() as GLsizei);
+    gl.DrawArrays(gl::TRIANGLES, 0 as GLint, vertices.len() as GLsizei);
+
+    let mut err: GLenum = gl.GetError();
+    while err != gl::NO_ERROR {
+      println!("OpenGL Error {}", err);
+      err = gl.GetError();
+    }
 
     event_loop.run(move |event, _, control_flow| {
       *control_flow = ControlFlow::Poll;
