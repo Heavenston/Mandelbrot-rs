@@ -96,7 +96,7 @@ fn main() {
 
     vec3 color(float its) {
       float t = its/u_ramp;
-      return hsl2rgb(vec3(t, 1., 0.5));
+      return hsl2rgb(vec3(clamp(t, 0., 1.), 1., 0.5));
     }
 
     void main() {
@@ -216,7 +216,7 @@ fn main() {
 
     gl.Uniform1f(ratio_loc, 1f32);
     gl.Uniform1f(zoom_loc, 0f32);
-    gl.Uniform2fv(position_loc, 2, [0.75, 0.0].as_ptr());
+    gl.Uniform2f(position_loc, 0.432905f32, 0.201506f32);
     
     /*
     FRAGMENT UNIFORMS
@@ -236,7 +236,7 @@ fn main() {
       err = gl.GetError();
     }
 
-    let mut zoom = 0f32;
+    let mut zoom = 50f32;
 
     let delay = std::time::Duration::from_millis(100);
     while !window.should_close() {
@@ -256,8 +256,12 @@ fn main() {
       }
       glfw.poll_events();
 
-      zoom += 0.25;
+      //zoom += 0.25;
       gl.Uniform1f(zoom_loc, zoom);
+
+      gl.Uniform1f(iterations_loc, 100.0*zoom);
+      gl.Uniform1f(threshold_loc, 32f32);
+      gl.Uniform1f(ramp_loc, 100.0*zoom);
 
       gl.Clear(gl::COLOR_BUFFER_BIT);
       gl.DrawArrays(gl::TRIANGLES, 0 as GLint, (vertices.len() as GLsizei)*(2 as GLsizei));
