@@ -89,8 +89,15 @@ fn main() {
     }
 
     vec3 color(float its) {
-      float t = its/u_ramp;
-      return hsl2rgb(vec3(clamp(t, 0., 1.), 1., 0.5));
+      /*float t = its/u_ramp;
+      return hsl2rgb(vec3(clamp(t, 0., 1.), 1., 0.5));*/
+      if (mod(its,3.) == 0) {
+        return vec3(1.0, 0.0, 0.0);
+      } else if (mod(its,3.) == 1) {
+        return vec3(0.0, 1.0, 0.0);
+      } else {
+        return vec3(0.0, 0.0, 1.0);
+      }
     }
 
     void main() {
