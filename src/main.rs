@@ -6,10 +6,13 @@ use glutin::{
   window::WindowBuilder,
   ContextBuilder
 };
+use std::vec::Vec;
+use std::str;
 
 mod gl {
   include!(concat!(env!("OUT_DIR"), "/gl_bindings.rs"));
 }
+use gl::types::*;
 
 fn main() {
   let event_loop = EventLoop::new();
@@ -25,7 +28,7 @@ fn main() {
 
   
   unsafe {
-    let vs_src = "attribute vec2 a_position\nvoid main() {\ngl_Position = vec4(a_position, 1.0, 1.0);\n}";
+    let vs_src = "attribute vec2 a_position;\nvoid main() {\ngl_Position = vec4(a_position, 1.0, 1.0);\n}";
     let vs = gl::CreateShader(gl::VERTEX_SHADER);
     gl::ShaderSource(
       vs,
@@ -35,11 +38,24 @@ fn main() {
     );
     gl::CompileShader(vs);
 
-    let mut err = gl::GetError();
-    while err != gl::NO_ERROR {
-      println!("Error: {}", err);
-      err = gl::GetError()
-    }
+    /*let mut success: GLint = 0;
+    gl::GetShaderiv(vs, gl::COMPILE_STATUS, &mut success);
+    println!("Success state : {}", success);
+    if success == 0 {
+      let mut max_length = 0;
+      gl::GetShaderiv(vs, gl::INFO_LOG_LENGTH, &mut max_length);
+      println!("max_length : {}", max_length);
+
+      let mut error_log: Vec<u8> = Vec::with_capacity(max_length as usize);
+      gl::GetShaderInfoLog(
+        vs,
+        max_length,
+        &mut max_length,
+        error_log.as_mut_ptr() as *mut i8
+      );
+      error_log.set_len(max_length as usize);
+      println!("Info log : {:s}", str::from_utf8(&error_log).unwrap());
+    }*/
   }
 
   event_loop.run(move |event, _, control_flow| {
