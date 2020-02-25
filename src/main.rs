@@ -31,7 +31,16 @@ fn main() {
 
   
   unsafe {
-    let vs_src = "attribute vec2 a_position;\nvoid main() {\ngl_Position = vec4(a_position, 1.0, 1.0);\n}";
+    let vs_src = b"
+    #version 100
+    precision mediump float;
+
+    attribute vec2 a_position;
+
+    void main() {
+      gl_Position = vec4(a_position, 1.0, 1.0);
+    }
+    \0";
     let vs = gl::CreateShader(gl::VERTEX_SHADER);
     gl::ShaderSource(
       vs,
@@ -41,8 +50,30 @@ fn main() {
     );
     gl::CompileShader(vs);
 
-    let fs_src = "precision mediump float;\nvoid main() {\ngl_FragColor = vec4(1.,0.,0.,1.)\n}";
-    let fs = gl::CreateShader(gl::VERTEX_SHADER);
+    let mut is_compiled = 0;
+    gl::GetShaderiv(vs, gl::COMPILE_STATUS, &mut is_compiled);
+    if is_compiled == 0 {
+      let mut max_length = 0;
+      gl::GetShaderiv(vs, gl::INFO_LOG_LENGTH, &mut max_length);
+
+      let mut info_log: Vec<u8> = Vec::with_capacity(max_length as usize);
+      gl::GetShaderInfoLog(vs, max_length, &mut max_length, info_log.as_mut_ptr() as *mut i8);
+      info_log.set_len(max_length as usize);
+      println!("{}", str::from_utf8(&info_log).unwrap());
+
+      gl::DeleteShader(vs);
+    }
+
+    let fs_src = b"
+    #version 100
+    
+    precision mediump float;
+
+    void main() {
+      gl_FragColor = vec4(1.,0.,0.,1.);
+    }
+    \0";
+    let fs = gl::CreateShader(gl::FRAGMENT_SHADER);
     gl::ShaderSource(
       fs,
       1,
@@ -50,6 +81,20 @@ fn main() {
       std::ptr::null(),
     );
     gl::CompileShader(fs);
+
+    let mut is_compiled = 0;
+    gl::GetShaderiv(fs, gl::COMPILE_STATUS, &mut is_compiled);
+    if is_compiled == 0 {
+      let mut max_length = 0;
+      gl::GetShaderiv(fs, gl::INFO_LOG_LENGTH, &mut max_length);
+
+      let mut info_log: Vec<u8> = Vec::with_capacity(max_length as usize);
+      gl::GetShaderInfoLog(fs, max_length, &mut max_length, info_log.as_mut_ptr() as *mut i8);
+      info_log.set_len(max_length as usize);
+      println!("{}", str::from_utf8(&info_log).unwrap());
+
+      gl::DeleteShader(fs);
+    }
 
     let program = gl::CreateProgram();
     gl::AttachShader(program, vs);
@@ -63,15 +108,12 @@ fn main() {
       let mut max_length = 0;
       gl::GetProgramiv(program, gl::INFO_LOG_LENGTH, &mut max_length);
 
-      // The maxLength includes the NULL character
       let mut info_log: Vec<u8> = Vec::with_capacity(max_length as usize);
       gl::GetProgramInfoLog(program, max_length, &mut max_length, info_log.as_mut_ptr() as *mut i8);
       info_log.set_len(max_length as usize);
-      println!("Info log : {:?}", str::from_utf8(&info_log).unwrap());
+      println!("{}", str::from_utf8(&info_log).unwrap());
 
-      // We don't need the program anymore.
       gl::DeleteProgram(program);
-      // Don't leak shaders either.
       gl::DeleteShader(vs);
       gl::DeleteShader(fs);
     }
