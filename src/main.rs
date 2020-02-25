@@ -36,24 +36,14 @@ fn main() {
   unsafe {
     let vs_src = b"
     #version 460
-    precision mediump float;
+    precision highp float;
 
     in vec2 a_position;
     out vec2 v_position;
 
-    uniform float u_ratio;
-    uniform float u_zoom;
-    uniform vec2 u_position;
-
     void main() {
       gl_Position = vec4(a_position, 1.0, 1.0);
       v_position = a_position;
-      v_position.x *= u_ratio;
-
-      float zoom_factor = pow(0.75, u_zoom);
-
-      v_position *= zoom_factor;
-      v_position += u_position;
     }
     \0";
     let vs = gl.CreateShader(gl::VERTEX_SHADER);
@@ -81,13 +71,17 @@ fn main() {
 
     let fs_src = b"
     #version 460
-    precision mediump float;
+    precision highp float;
 
     in vec2 v_position;
 
     uniform float u_iterations;
     uniform float u_threshold;
     uniform float u_ramp;
+
+    uniform float u_zoom;
+    uniform vec2 u_position;
+    uniform float u_ratio;
 
     vec3 hsl2rgb( in vec3 c ){
       vec3 rgb = clamp( abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0 );
@@ -100,17 +94,21 @@ fn main() {
     }
 
     void main() {
-      vec2 c = v_position.xy;
-      vec2 z = vec2(0.);
+      dvec2 c = v_position;
+      c.x *= u_ratio;
+      c *= u_zoom;
+      c += u_position;
+
+      dvec2 z = dvec2(0.);
 
       float iterations = 0.;
       for (float i = 0.; i < u_iterations; i++) {
         iterations = i;
-        float zr2 = z.x * z.x;
-        float zi2 = z.y * z.y;
-    
+        double zr2 = z.x * z.x;
+        double zi2 = z.y * z.y;
+
         if(zr2 + zi2 > u_threshold) break;
-        z = vec2(zr2 - zi2, 2.0 * z.x * z.y) + c;
+        z = dvec2(zr2 - zi2, 2.0 * z.x * z.y) + c;
       }
 
       gl_FragColor = vec4(color(iterations), 1.);
@@ -216,7 +214,9 @@ fn main() {
 
     gl.Uniform1f(ratio_loc, 1f32);
     gl.Uniform1f(zoom_loc, 0f32);
-    gl.Uniform2f(position_loc, 0.432905f32, 0.201506f32);
+    //gl.Uniform2f(position_loc, 0.432905f32, 0.201506f32);
+    //gl.Uniform2f(position_loc, -1.940157086, -0.000001221);
+    gl.Uniform2f(position_loc, -0.06783611264225835, -0.6617430381250546);
     
     /*
     FRAGMENT UNIFORMS
@@ -236,9 +236,9 @@ fn main() {
       err = gl.GetError();
     }
 
-    let mut zoom = 50f32;
+    let start_time = std::time::SystemTime::now();
 
-    let delay = std::time::Duration::from_millis(100);
+    let delay = std::time::Duration::from_millis(10);
     while !window.should_close() {
       std::thread::sleep(delay);
 
@@ -256,12 +256,15 @@ fn main() {
       }
       glfw.poll_events();
 
-      //zoom += 0.25;
-      gl.Uniform1f(zoom_loc, zoom);
+      let elapsed = start_time.elapsed().unwrap();
 
-      gl.Uniform1f(iterations_loc, 100.0*zoom);
+      let zoom = elapsed.as_secs_f32()*2.0;
+      gl.Uniform1f(zoom_loc, 0.75f32.powf(zoom));
+
+      let its = 50.0 * f32::powf(f32::log10(1.125f32.powf(zoom)*256.0), 1.25);
+      gl.Uniform1f(iterations_loc, its);
       gl.Uniform1f(threshold_loc, 32f32);
-      gl.Uniform1f(ramp_loc, 100.0*zoom);
+      gl.Uniform1f(ramp_loc, its);
 
       gl.Clear(gl::COLOR_BUFFER_BIT);
       gl.DrawArrays(gl::TRIANGLES, 0 as GLint, (vertices.len() as GLsizei)*(2 as GLsizei));
