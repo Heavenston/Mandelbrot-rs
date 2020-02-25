@@ -1,4 +1,3 @@
-extern crate winit;
 extern crate glutin;
 
 use glutin::{
