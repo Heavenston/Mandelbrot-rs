@@ -1,7 +1,7 @@
 use winit::{
-event::{Event, WindowEvent},
-event_loop::{ControlFlow, EventLoop},
-window::WindowBuilder,
+  event::{Event, WindowEvent},
+  event_loop::{ControlFlow, EventLoop},
+  window::WindowBuilder,
 };
 
 fn main() {
