@@ -5,16 +5,14 @@ mod gl {
 }
 
 use glfw::{Action, Context, Key};
-#[allow(unused_imports)]
 use std::vec::Vec;
-#[allow(unused_imports)]
 use std::str;
-#[allow(unused_imports)]
 use gl::types::*;
 
 fn main() {
   let mut glfw = glfw::init(glfw::FAIL_ON_ERRORS).unwrap();
 
+  // Create a window
   let (mut window, events) = glfw.create_window(
     500, 450,
     "Heav's Mandelbrot",
@@ -23,17 +21,23 @@ fn main() {
 
   window.make_current();
   
+  // Opengl 4.6 Core profile
   glfw.window_hint(glfw::WindowHint::ContextVersion(4, 6));
   glfw.window_hint(glfw::WindowHint::OpenGlProfile(glfw::OpenGlProfileHint::Core));
   #[cfg(target_os = "macos")]
   glfw.window_hint(glfw::WindowHint::OpenGlForwardCompat(true));
   
+  // Activate key polling to be able to register them
   window.set_key_polling(true);
+  // Activate framebuffer size polling to detect resizing
   window.set_framebuffer_size_polling(true);
 
+  // Loading GL
   let gl = gl::Gl::load_with(|ptr| window.get_proc_address(ptr));
 
+  // Unsafe is required for all gl functions :(
   unsafe {
+    // Vertex shader source
     let vs_src = b"
     #version 460
     precision highp float;
@@ -46,6 +50,7 @@ fn main() {
       v_position = a_position;
     }
     \0";
+    // Creation and compilation of vertex shader
     let vs = gl.CreateShader(gl::VERTEX_SHADER);
     gl.ShaderSource(
       vs,
@@ -55,6 +60,7 @@ fn main() {
     );
     gl.CompileShader(vs);
 
+    // Check for compilation errors
     let mut is_compiled = 0;
     gl.GetShaderiv(vs, gl::COMPILE_STATUS, &mut is_compiled);
     if is_compiled == 0 {
@@ -69,6 +75,7 @@ fn main() {
       gl.DeleteShader(vs);
     }
 
+    // Fragment shader source
     let fs_src = b"
     #version 460
     precision highp float;
@@ -121,6 +128,7 @@ fn main() {
       gl_FragColor = vec4(color(iterations), 1.);
     }
     \0";
+    // Creation and compilation of fragment shader
     let fs = gl.CreateShader(gl::FRAGMENT_SHADER);
     gl.ShaderSource(
       fs,
@@ -130,6 +138,7 @@ fn main() {
     );
     gl.CompileShader(fs);
 
+    // Check for compilation errors
     let mut is_compiled = 0;
     gl.GetShaderiv(fs, gl::COMPILE_STATUS, &mut is_compiled);
     if is_compiled == 0 {
@@ -144,12 +153,16 @@ fn main() {
       gl.DeleteShader(fs);
     }
 
+    // Create the program
     let program = gl.CreateProgram();
+    // Attach the shaders
     gl.AttachShader(program, vs);
     gl.AttachShader(program, fs);
 
+    // Link the program
     gl.LinkProgram(program);
 
+    // Check for linking errors
     let mut is_linked = 0;
     gl.GetProgramiv(program, gl::LINK_STATUS, &mut is_linked);
     if is_linked == 0 {
@@ -166,11 +179,13 @@ fn main() {
       gl.DeleteShader(fs);
     }
 
+    // Cleaning up the shaders
     gl.DetachShader(program, vs);
     gl.DetachShader(program, fs);
-
+    // And set the program as current
     gl.UseProgram(program);
     
+    // Creation of vertex array buffer
     let vertices: Vec<f32> = vec![
       -1f32, 1f32, // 0
        1f32, 1f32, // 1
@@ -190,91 +205,113 @@ fn main() {
       gl::STATIC_DRAW
     );
 
+    // TBH i don't remember what this is doing :P
     if gl.BindVertexArray.is_loaded() {
       let mut vao = std::mem::zeroed();
       gl.GenVertexArrays(1, &mut vao);
       gl.BindVertexArray(vao);
     }
 
+    // Getting location and enabling a_position attribute
     let position_loc = gl.GetAttribLocation(program, b"a_position\0".as_ptr() as *const _);
     gl.EnableVertexAttribArray(position_loc as GLuint);
 
+    // Set the vertex attribute
     gl.VertexAttribPointer(
       position_loc as GLuint,
-      2,
-      gl::FLOAT,
+      2, // VEC2
+      gl::FLOAT, // Of floats
       0, // False
-      2 * std::mem::size_of::<GLfloat>() as GLsizei,
-      std::ptr::null()
+      2 * std::mem::size_of::<GLfloat>() as GLsizei, // Size of each vertex
+      std::ptr::null() // Start a begining of buffer
     );
 
+    // Black clear color
     gl.ClearColor(0.0,0.0,0.0,1.0);
-    gl.UseProgram(program);
 
     /*
     VERTEX UNIFORMS
     */
 
+    // Get uniforms locations
     let ratio_loc = gl.GetUniformLocation(program, b"u_ratio\0".as_ptr() as *const GLchar);
     let zoom_loc = gl.GetUniformLocation(program, b"u_zoom\0".as_ptr() as *const GLchar);
     let position_loc = gl.GetUniformLocation(program, b"u_position\0".as_ptr() as *const GLchar);
 
+    // Set default uniforms values
     gl.Uniform1f(ratio_loc, 1f32);
     gl.Uniform1f(zoom_loc, 0f32);
-    //gl.Uniform2f(position_loc, 0.432905f32, 0.201506f32);
-    //gl.Uniform2f(position_loc, -1.940157086, -0.000001221);
     gl.Uniform2f(position_loc, -0.06783611264225835, -0.6617430381250546);
     
     /*
     FRAGMENT UNIFORMS
     */
 
+    // Get uniforms locations
     let iterations_loc = gl.GetUniformLocation(program, b"u_iterations\0".as_ptr() as *const GLchar);
     let threshold_loc = gl.GetUniformLocation(program, b"u_threshold\0".as_ptr() as *const GLchar);
     let ramp_loc = gl.GetUniformLocation(program, b"u_ramp\0".as_ptr() as *const GLchar);
 
+    // Set default uniforms values
     gl.Uniform1f(iterations_loc, 100f32);
     gl.Uniform1f(threshold_loc, 32f32);
     gl.Uniform1f(ramp_loc, 100f32);
 
+    // Check for any errors that happened before
     let mut err: GLenum = gl.GetError();
     while err != gl::NO_ERROR {
       println!("OpenGL Error {}", err);
       err = gl.GetError();
     }
 
+    // Record when we started rendering
     let start_time = std::time::SystemTime::now();
 
+    // Delay between each render
     let delay = std::time::Duration::from_millis(10);
     while !window.should_close() {
+      // Apply the delay
       std::thread::sleep(delay);
 
+      // Go though all the events and do something with them
       for (_, event) in glfw::flush_messages(&events) {
         match event {
           glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
             window.set_should_close(true)
           },
           glfw::WindowEvent::FramebufferSize(width, height) => {
+            // Change of framebuffer size, so update the ratio and the gl viewport
             gl.Uniform1f(ratio_loc, (width as f32)/(height as f32));
             gl.Viewport(0, 0, width, height);
           },
           _ => {},
         }
       }
+      // Let glfw do somthing with the remaining events
       glfw.poll_events();
 
+      // Get the elapsed time
       let elapsed = start_time.elapsed().unwrap();
 
+      // Compute zoom
       let zoom = elapsed.as_secs_f32()*2.0;
+      // Give the zoom to the shader with 0.75^zoom
       gl.Uniform1f(zoom_loc, 0.75f32.powf(zoom));
 
-      let its = 50.0 * f32::powf(f32::log10(1.125f32.powf(zoom)*256.0), 1.25);
+      // Compute the number of iterations
+      let its = 50.0 * f32::powf(f32::log10(1.125f32.powf(zoom)*256.0), 1.25); // 50.0 * log10(1.125^zoom)^1.25
+      // Set iterations uniform
       gl.Uniform1f(iterations_loc, its);
+      // Threshold is always 32 (could move that out but :P)
       gl.Uniform1f(threshold_loc, 32f32);
+      // And the color ramp is equal to the number of iterations
       gl.Uniform1f(ramp_loc, its);
 
+      // Clear the screen
       gl.Clear(gl::COLOR_BUFFER_BIT);
+      // Draw
       gl.DrawArrays(gl::TRIANGLES, 0 as GLint, (vertices.len() as GLsizei)*(2 as GLsizei));
+      // Reverse the glfw buffer
       window.swap_buffers();
     }
   }
