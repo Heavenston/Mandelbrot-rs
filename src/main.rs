@@ -241,7 +241,7 @@ fn main() {
     // Set default uniforms values
     gl.Uniform1f(ratio_loc, 1f32);
     gl.Uniform1f(zoom_loc, 0f32);
-    gl.Uniform2f(position_loc, -0.06783611264225835, -0.6617430381250546);
+    gl.Uniform2f(position_loc, -0.8115312340458353, 0.2014296112433656);
     
     /*
     FRAGMENT UNIFORMS
